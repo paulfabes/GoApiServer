@@ -1,0 +1,188 @@
+<!doctype html>
+<html xmlns:height="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8">
+
+    <style>
+        #log {
+            width: 98%;
+            height: 73%;
+            border: 1px solid rgb(192, 192, 192);
+            font: 100% 'Courier New';
+            overflow: auto;
+            position: fixed;
+            top: 1%;
+            word-wrap: break-word;
+        }
+        p {
+            margin-top: 0;
+            margin-bottom: 0;
+            padding-top: 0.66em;
+            padding-bottom: 0.22em;
+        }
+
+        #controls {
+            width: 100%;
+            height: 25%;
+            border: 0;
+            font: 100% 'Courier New';
+            overflow: auto;
+            position: fixed;
+            bottom: 0;
+        }
+
+        table {
+            width: 99%;
+        }
+        textarea {
+            border: 1px solid darkgray;
+            background: rgba(219, 248, 255, 0.48);
+            padding: 9px;
+            margin-left: 2%;
+            width: 95%;
+            height: 20vh;
+        }
+        button {
+            background: rgb(196, 229, 255);
+            width: 100%;
+            height: 9vh;
+        }
+
+        .out {
+            color: rgb(0, 0, 0);
+        }
+        .time {
+            color: rgb(104, 104, 104);
+            font-size: 80%;
+        }
+        .system {
+            color: rgb(165, 42, 42);
+        }
+        .event {
+            color: rgb(0, 142, 0);
+            font-weight: bold;
+            font-size: 105%;
+        }
+    </style>
+
+    <script>
+        var host = "ws://10.14.4.138:8080/ws";
+        var socket = undefined; //вебсокет сервер
+        var highlight = true; //делать строки разноцветными
+        var audio = new Audio('images/error.wav');
+
+        /* узнать текущее время */
+        function showtime() {
+            var time = new Date(Date.now()),
+                h = time.getHours(),
+                m = time.getMinutes(),
+                s = time.getSeconds(),
+                d = time.getMilliseconds();
+            if (h < 10) h = '0' + h;
+            if (m < 10) m = '0' + m;
+            if (s < 10) s = '0' + s;
+            if (d < 10) d = '00' + d;
+            else if (d < 100) d = '0' + d;
+            return h + ':' + m + ':' + s + '.' + d;
+        }
+
+        /* добавить строку в чат */
+        function addText(text) {
+            highlight = !highlight;
+            var log = document.querySelector('#log');
+            log.innerHTML += '<p style="background-color: ' + (highlight ? '#ffffff' : '#eeeeee') + '"><span class="time"> ' + showtime() + '</span>: ' + text + '</p>';
+            //очистить устаревший текст
+            if (log.children.length > 100) {
+                log.removeChild(log.childNodes[0]);
+            }
+        }
+
+        function newSocket () {
+            if (socket !== undefined) socket.close();
+            addText('<span class="system">Connecting to ' + host + '...</span>');
+            socket = new WebSocket(host);
+
+            //при подключении - выдать что подключен
+            socket.onopen = function () {
+                addText('<span class="system">Connection established</span>');
+            };
+
+            //при отключении - выдать что отключен
+            socket.onclose = function () {
+                addText('<span class="system">Connection lost...</span>');
+                newSocket ();
+            };
+
+            //обработка сообщения из сокета
+            socket.onmessage = function (message) {
+                var text = message.data.replace(/\r|\n|\\/g, '').replace('"event"', '<span class="event">"event"</span>').replace(/\,/g, ',<br>');
+                if (message.data.indexOf('Error:') === 0) {
+                    text = '<b>' + text + '</b>';
+                    audio.play();
+                }
+                addText('<span class="out">' + text + '</span>');
+
+                if (!document.getElementById("noscroll").checked){
+                    document.querySelector('#log').scrollTop = document.querySelector('#log').scrollHeight;
+                }
+            };
+
+            //отправка сообщений в сокет
+            document.querySelector('#send').onclick = function() {
+                socket.send(document.querySelector('#input').value);
+            };
+
+            //очистка чата
+            document.querySelector('#clear').onclick = function() {
+                document.querySelector('#log').innerHTML = '';
+            };
+        }
+
+        /* при загрузке окна подключиться к сокету и определить методы работы */
+        window.onload = function () {
+            newSocket ();
+        };
+
+    </script>
+</head>
+
+<body>
+<div style="height: 98vh;">
+    <div id="log"></div>
+    <div id="controls">
+        <input type="checkbox" id="noscroll">
+        <label for="noscroll">Не прокручивать</label>
+        <table border="0" cellspacing="0" cellpadding="0">
+            <tr>
+                <td width="10%">
+                    <button id="send">Send</button>
+                </td>
+                <td rowspan="2">
+                    <textarea id="input">
+
+                        {
+                         "id":"",
+                         "source":"client",
+                         "destination":"server",
+                         "event":"client login",
+                         "data":{
+                           "KEY": "zASdAda4daj2hd32zxc",
+                           "MOBILE_OS":"ios",
+                           "LOGIN":"user",
+                           "PASS":"pass"
+                         }
+                        }
+
+                    </textarea>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <button id="clear">Clear</button>
+                </td>
+            </tr>
+        </table>
+    </div>
+</div>
+</body>
+</html>
